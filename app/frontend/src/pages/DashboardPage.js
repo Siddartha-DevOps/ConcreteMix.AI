@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '../contexts/AuthContext';
+import { Button } from '../components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Cube, SignOut, Flask, ChartLine, CurrencyDollar, Leaf } from '@phosphor-icons/react';
-import { StrengthPrediction } from '@/components/dashboard/StrengthPrediction';
-import { MixOptimization } from '@/components/dashboard/MixOptimization';
-import { CostCalculator } from '@/components/dashboard/CostCalculator';
-import { CarbonCalculator } from '@/components/dashboard/CarbonCalculator';
+import { StrengthPrediction } from '../components/dashboard/StrengthPrediction';
+import { MixOptimization } from '../components/dashboard/MixOptimization';
+import { CostCalculator } from '../components/dashboard/CostCalculator';
+import { CarbonCalculator } from '../components/dashboard/CarbonCalculator';
 
 export const DashboardPage = () => {
   const { user, logout } = useAuth();
