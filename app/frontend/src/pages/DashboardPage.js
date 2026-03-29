@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Cube, SignOut, FlaskConical, ChartLine, CurrencyDollar, Leaf } from '@phosphor-icons/react';
+import { Cube, SignOut, Flask, ChartLine, CurrencyDollar, Leaf } from '@phosphor-icons/react';
 import { StrengthPrediction } from '@/components/dashboard/StrengthPrediction';
 import { MixOptimization } from '@/components/dashboard/MixOptimization';
 import { CostCalculator } from '@/components/dashboard/CostCalculator';
@@ -58,7 +58,7 @@ export const DashboardPage = () => {
               className="flex items-center gap-2 py-3"
               data-testid="tab-predict"
             >
-              <FlaskConical size={20} />
+              <Flask size={32} />
               <span className="hidden sm:inline">Strength Prediction</span>
               <span className="sm:hidden">Predict</span>
             </TabsTrigger>
