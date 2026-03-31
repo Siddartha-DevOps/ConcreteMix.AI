@@ -269,6 +269,35 @@ async def get_dashboard_stats(request: Request):
 async def root():
     return {"message": "ConcreteMix.AI API is running"}
 
+# History Endpoints
+@api_router.get("/history")
+async def get_history(request: Request):
+    user = await get_current_user(request, db)
+    cursor = db.predictions.find(
+        {"user_id": user["_id"]},
+        {"password_hash": 0}
+    ).sort("created_at", -1).limit(100)
+
+    results = []
+    async for doc in cursor:
+        doc["id"] = str(doc.pop("_id"))
+        doc["user_id"] = str(doc["user_id"])
+        if "created_at" in doc:
+            doc["created_at"] = doc["created_at"].isoformat()
+        results.append(doc)
+    return results
+
+@api_router.delete("/history/{prediction_id}")
+async def delete_history(prediction_id: str, request: Request):
+    user = await get_current_user(request, db)
+    result = await db.predictions.delete_one({
+        "_id": ObjectId(prediction_id),
+        "user_id": ObjectId(user["_id"])
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    return {"message": "Deleted successfully"}
+
 # ── Admin helper ──────────────────────────────────────────────────────────────
 async def require_admin(request: Request):
     user = await get_current_user(request, db)
