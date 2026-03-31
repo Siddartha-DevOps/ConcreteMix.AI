@@ -18,6 +18,7 @@ from auth_utils import (
     get_current_user, check_brute_force, record_failed_login, clear_login_attempts
 )
 from ml_models import StrengthPredictor, MixOptimizer
+from copilot_engine import ConcreteCopilot
 
 ROOT_DIR = Path(__file__).parent
 
@@ -29,6 +30,7 @@ db = client[os.environ['DB_NAME']]
 # Initialize ML models
 predictor = StrengthPredictor()
 optimizer = MixOptimizer(predictor)
+copilot  = ConcreteCopilot()
 
 # Load or train models on startup
 ml_models_loaded = False
@@ -268,6 +270,84 @@ async def get_dashboard_stats(request: Request):
 @api_router.get("/")
 async def root():
     return {"message": "ConcreteMix.AI API is running"}
+
+# ── Copilot Endpoints ─────────────────────────────────────────────────────────
+
+class CopilotMessage(BaseModel):
+    message: str
+
+@api_router.post("/copilot/chat")
+async def copilot_chat(body: CopilotMessage, request: Request):
+    user = await get_current_user(request, db)
+    user_id = user["_id"]
+
+    # Load conversation history for this user (last 10 turns)
+    cursor = db.copilot_conversations.find(
+        {"user_id": user_id}
+    ).sort("created_at", -1).limit(10)
+    history = []
+    async for doc in cursor:
+        doc["id"] = str(doc.pop("_id"))
+        doc["user_id"] = str(doc["user_id"])
+        if "created_at" in doc:
+            doc["created_at"] = doc["created_at"].isoformat()
+        history.append(doc)
+    history.reverse()
+
+    # Run the copilot engine
+    result = copilot.process(
+        message=body.message,
+        conversation_history=history,
+        predictor=predictor,
+        optimizer=optimizer
+    )
+
+    # Save user message + agent response to MongoDB
+    now = datetime.now(timezone.utc)
+    await db.copilot_conversations.insert_one({
+        "user_id": user_id,
+        "role": "user",
+        "content": body.message,
+        "created_at": now
+    })
+    await db.copilot_conversations.insert_one({
+        "user_id": user_id,
+        "role": "agent",
+        "content": result["message"],
+        "intent": result.get("intent"),
+        "steps": result.get("steps", []),
+        "data": result.get("data", {}),
+        "mix_data": result.get("mix_data"),
+        "params": {
+            "target_strength": None,
+            "raw_grade": None,
+        },
+        "created_at": now
+    })
+
+    return result
+
+@api_router.get("/copilot/history")
+async def copilot_history(request: Request):
+    user = await get_current_user(request, db)
+    cursor = db.copilot_conversations.find(
+        {"user_id": user["_id"]}
+    ).sort("created_at", 1).limit(100)
+
+    messages = []
+    async for doc in cursor:
+        doc["id"] = str(doc.pop("_id"))
+        doc["user_id"] = str(doc["user_id"])
+        if "created_at" in doc:
+            doc["created_at"] = doc["created_at"].isoformat()
+        messages.append(doc)
+    return messages
+
+@api_router.delete("/copilot/history")
+async def clear_copilot_history(request: Request):
+    user = await get_current_user(request, db)
+    await db.copilot_conversations.delete_many({"user_id": user["_id"]})
+    return {"message": "Conversation cleared"}
 
 # History Endpoints
 @api_router.get("/history")

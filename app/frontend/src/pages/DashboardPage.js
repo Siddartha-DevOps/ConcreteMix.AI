@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Cube, SignOut, Flask, ChartLine, CurrencyDollar, Leaf, ShieldCheck } from '@phosphor-icons/react';
+import { Cube, SignOut, Flask, ChartLine, CurrencyDollar, Leaf, ShieldCheck, ClockCounterClockwise, Robot } from '@phosphor-icons/react';
 import { StrengthPrediction } from '../components/dashboard/StrengthPrediction';
 import { MixOptimization } from '../components/dashboard/MixOptimization';
 import { CostCalculator } from '../components/dashboard/CostCalculator';
@@ -32,6 +32,24 @@ export const DashboardPage = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/copilot')}
+                className="border-orange-400 bg-orange-500 text-white hover:bg-orange-600"
+              >
+                <Robot size={16} className="mr-2" />
+                AI Copilot
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/history')}
+                className="border-gray-300 text-gray-600 hover:bg-gray-50"
+              >
+                <ClockCounterClockwise size={16} className="mr-2" />
+                History
+              </Button>
               {user?.role === 'admin' && (
                 <Button
                   variant="outline"

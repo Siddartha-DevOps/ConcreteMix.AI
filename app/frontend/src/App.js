@@ -6,6 +6,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { AdminPage } from "./pages/AdminPage";
+import { HistoryPage } from "./pages/HistoryPage";
+import { CopilotPage } from "./pages/CopilotPage";
 
 function App() {
   return (
@@ -27,11 +29,13 @@ function App() {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute>
                   <AdminPage />
                 </ProtectedRoute>
               }
             />
+            <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+            <Route path="/copilot" element={<ProtectedRoute><CopilotPage /></ProtectedRoute>} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
