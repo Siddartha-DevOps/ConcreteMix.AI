@@ -1,7 +1,14 @@
 import { useEffect } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthProvider"
+import { ProtectedRoute} from "./components/ProtectedRoute";
+
 import axios from "axios";
+
+import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { DashboardPage } from "./pages/DashboardPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -34,12 +41,22 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
+        <AuthProvider>
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-
+          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+        }
+        />
         </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </div>
   );
