@@ -1,4 +1,4 @@
-import minimize, differental_evolution
+import numpy as np
 from scipy.optimize import minimize, differential_evolution
 import random
 

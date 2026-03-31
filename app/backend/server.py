@@ -1,4 +1,4 @@
-"from dotenv import load_dotenv
+from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
@@ -6,7 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr
 from typing import Optional, Dict, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import os
 import logging
 from pathlib import Path
@@ -34,7 +34,14 @@ optimizer = MixOptimizer(predictor)
 ml_models_loaded = False
 
 app = FastAPI()
-api_router = APIRouter(prefix=\"/api\")
+api_router = APIRouter(prefix="/api")
+
+# Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Pydantic Models
 class RegisterRequest(BaseModel):
@@ -73,185 +80,91 @@ class CostCalculationRequest(BaseModel):
     material_costs: Dict[str, float]
 
 # Auth Endpoints
-@api_router.post(\"/auth/register\")
+@api_router.post("/auth/register")
 async def register(request: RegisterRequest, response: Response):
     email = request.email.lower()
-    
-    # Check if user exists
-    existing = await db.users.find_one({\"email\": email})
+
+    existing = await db.users.find_one({"email": email})
     if existing:
-        raise HTTPException(status_code=400, detail=\"Email already registered\")
-    
-    # Create user
+        raise HTTPException(status_code=400, detail="Email already registered")
+
     user_doc = {
-        \"email\": email,
-        \"password_hash\": hash_password(request.password),
-        \"name\": request.name,
-        \"company\": request.company,
-        \"role\": \"user\",
-        \"subscription_tier\": \"free\",
-        \"created_at\": datetime.now(timezone.utc)
+        "email": email,
+        "password_hash": hash_password(request.password),
+        "name": request.name,
+        "company": request.company,
+        "role": "user",
+        "subscription_tier": "free",
+        "created_at": datetime.now(timezone.utc)
     }
-    
+
     result = await db.users.insert_one(user_doc)
     user_id = str(result.inserted_id)
-    
-    # Create tokens
+
     access_token = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
-    
-    # Set cookies
-    response.set_cookie(
-        key=\"access_token\",
-        value=access_token,
-        httponly=True,
-        secure=False,
-        samesite=\"lax\",
-        max_age=900,
-        path=\"/\"
-    )
-    response.set_cookie(
-        key=\"refresh_token\",
-        value=refresh_token,
-        httponly=True,
-        secure=False,
-        samesite=\"lax\",
-        max_age=604800,
-        path=\"/\"
-    )
-    
+
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=900, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+
     return {
-        \"id\": user_id,
-        \"email\": email,
-        \"name\": request.name,
-        \"company\": request.company,
-        \"role\": \"user\",
-        \"subscription_tier\": \"free\"
+        "id": user_id,
+        "email": email,
+        "name": request.name,
+        "company": request.company,
+        "role": "user",
+        "subscription_tier": "free"
     }
 
-@api_router.post(\"/auth/login\")
+@api_router.post("/auth/login")
 async def login(request: LoginRequest, req: Request, response: Response):
     email = request.email.lower()
-    identifier = f\"{req.client.host}:{email}\"
-    
-    # Check brute force
+    identifier = f"{req.client.host}:{email}"
+
     await check_brute_force(db, identifier)
-    
-    # Find user
-    user = await db.users.find_one({\"email\": email})
-    if not user or not verify_password(request.password, user[\"password_hash\"]):
+
+    user = await db.users.find_one({"email": email})
+    if not user or not verify_password(request.password, user["password_hash"]):
         await record_failed_login(db, identifier)
-        raise HTTPException(status_code=401, detail=\"Invalid email or password\")
-    
-    # Clear failed attempts
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
     await clear_login_attempts(db, identifier)
-    
-    # Create tokens
-    user_id = str(user[\"_id\"])
+
+    user_id = str(user["_id"])
     access_token = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
-    
-    # Set cookies
-    response.set_cookie(
-        key=\"access_token\",
-        value=access_token,
-        httponly=True,
-        secure=False,
-        samesite=\"lax\",
-        max_age=900,
-        path=\"/\"
-    )
-    response.set_cookie(
-        key=\"refresh_token\",
-        value=refresh_token,
-        httponly=True,
-        secure=False,
-        samesite=\"lax\",
-        max_age=604800,
-        path=\"/\"
-    )
-    
+
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=900, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+
     return {
-        \"id\": user_id,
-        \"email\": user[\"email\"],
-        \"name\": user[\"name\"],
-        \"company\": user.get(\"company\"),
-        \"role\": user[\"role\"],
-        \"subscription_tier\": user.get(\"subscription_tier\", \"free\")
+        "id": user_id,
+        "email": user["email"],
+        "name": user["name"],
+        "company": user.get("company"),
+        "role": user["role"],
+        "subscription_tier": user.get("subscription_tier", "free")
     }
 
-@api_router.post(\"/auth/logout\")
+@api_router.post("/auth/logout")
 async def logout(response: Response):
-    response.delete_cookie(\"access_token\", path=\"/\")
-    response.delete_cookie(\"refresh_token\", path=\"/\")
-    return {\"message\": \"Logged out successfully\"}
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
+    return {"message": "Logged out successfully"}
 
-@api_router.get(\"/auth/me\")
+@api_router.get("/auth/me")
 async def get_me(request: Request):
     user = await get_current_user(request, db)
     return user
 
-@api_router.post(\"/auth/forgot-password\")
-async def forgot_password(request: ForgotPasswordRequest):
-    email = request.email.lower()
-    user = await db.users.find_one({\"email\": email})
-    
-    if not user:
-        # Don't reveal if email exists
-        return {\"message\": \"If the email exists, a reset link will be sent\"}
-    
-    # Generate reset token
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(hours=1)
-    
-    await db.password_reset_tokens.insert_one({
-        \"token\": token,
-        \"user_id\": user[\"_id\"],
-        \"expires_at\": expires_at,
-        \"used\": False
-    })
-    
-    # In production, send email. For now, log to console
-    reset_link = f\"{os.environ.get('FRONTEND_URL')}/reset-password?token={token}\"
-    logging.info(f\"Password reset link: {reset_link}\")
-    
-    return {\"message\": \"If the email exists, a reset link will be sent\"}
-
-@api_router.post(\"/auth/reset-password\")
-async def reset_password(request: ResetPasswordRequest):
-    token_doc = await db.password_reset_tokens.find_one({
-        \"token\": request.token,
-        \"used\": False
-    })
-    
-    if not token_doc:
-        raise HTTPException(status_code=400, detail=\"Invalid or expired reset token\")
-    
-    if datetime.now(timezone.utc) > token_doc[\"expires_at\"]:
-        raise HTTPException(status_code=400, detail=\"Reset token has expired\")
-    
-    # Update password
-    await db.users.update_one(
-        {\"_id\": token_doc[\"user_id\"]},
-        {\"$set\": {\"password_hash\": hash_password(request.new_password)}}
-    )
-    
-    # Mark token as used
-    await db.password_reset_tokens.update_one(
-        {\"_id\": token_doc[\"_id\"]},
-        {\"$set\": {\"used\": True}}
-    )
-    
-    return {\"message\": \"Password reset successfully\"}
-
 # ML Endpoints
-@api_router.post(\"/predict-strength\")
+@api_router.post("/predict-strength")
 async def predict_strength(mix_input: MixDesignInput, request: Request):
     user = await get_current_user(request, db)
-    
+
     if not ml_models_loaded:
-        raise HTTPException(status_code=503, detail=\"ML models are still loading. Please try again.\")
-    
+        raise HTTPException(status_code=503, detail="ML models are still loading. Please try again.")
+
     mix_data = {
         'cement': mix_input.cement,
         'slag': mix_input.slag,
@@ -261,228 +174,213 @@ async def predict_strength(mix_input: MixDesignInput, request: Request):
         'coarse_aggregate': mix_input.coarse_aggregate,
         'fine_aggregate': mix_input.fine_aggregate
     }
-    
-    # Get predictions for different ages
+
     prediction_7d = predictor.predict_strength(mix_data, age=7)
     prediction_28d = predictor.predict_strength(mix_data, age=28)
     prediction_56d = predictor.predict_strength(mix_data, age=56)
-    
-    # Calculate water-cement ratio
+
     w_c_ratio = mix_input.water / mix_input.cement
-    
-    # Save prediction to database
+
     prediction_doc = {
-        \"user_id\": user[\"_id\"],
-        \"mix_design\": mix_data,
-        \"predictions\": {
-            \"7_day\": prediction_7d[\"predicted_strength\"],
-            \"28_day\": prediction_28d[\"predicted_strength\"],
-            \"56_day\": prediction_56d[\"predicted_strength\"]
+        "user_id": user["_id"],
+        "mix_design": mix_data,
+        "predictions": {
+            "7_day": prediction_7d["predicted_strength"],
+            "28_day": prediction_28d["predicted_strength"],
+            "56_day": prediction_56d["predicted_strength"]
         },
-        \"confidence\": prediction_28d[\"confidence\"],
-        \"water_cement_ratio\": w_c_ratio,
-        \"created_at\": datetime.now(timezone.utc)
+        "water_cement_ratio": w_c_ratio,
+        "created_at": datetime.now(timezone.utc)
     }
-    
     await db.predictions.insert_one(prediction_doc)
-    
+
     return {
-        \"predictions\": {
-            \"7_day_strength\": round(prediction_7d[\"predicted_strength\"], 2),
-            \"28_day_strength\": round(prediction_28d[\"predicted_strength\"], 2),
-            \"56_day_strength\": round(prediction_56d[\"predicted_strength\"], 2)
-        },
-        \"confidence_score\": round(prediction_28d[\"confidence\"], 1),
-        \"water_cement_ratio\": round(w_c_ratio, 3),
-        \"model_details\": {
-            \"rf_prediction\": round(prediction_28d[\"rf_prediction\"], 2),
-            \"nn_prediction\": round(prediction_28d[\"nn_prediction\"], 2)
-        }
+        "strength_7day": round(prediction_7d["predicted_strength"], 2),
+        "strength_28day": round(prediction_28d["predicted_strength"], 2),
+        "strength_56day": round(prediction_56d["predicted_strength"], 2),
+        "confidence_score": round(prediction_28d.get("confidence", 90.0), 1),
+        "water_cement_ratio": round(w_c_ratio, 3)
     }
 
-@api_router.post(\"/optimize-mix\")
+@api_router.post("/optimize-mix")
 async def optimize_mix(opt_request: OptimizationRequest, request: Request):
     user = await get_current_user(request, db)
-    
+
     if not ml_models_loaded:
-        raise HTTPException(status_code=503, detail=\"ML models are still loading. Please try again.\")
-    
-    # Run optimization
-    result = optimizer.optimize_mix_design(
-        opt_request.target_strength,
-        opt_request.material_costs
-    )
-    
-    # Save optimization to database
+        raise HTTPException(status_code=503, detail="ML models are still loading. Please try again.")
+
+    result = optimizer.optimize_mix_design(opt_request.target_strength, opt_request.material_costs)
+
     opt_doc = {
-        \"user_id\": user[\"_id\"],
-        \"target_strength\": opt_request.target_strength,
-        \"optimized_mix\": result[\"optimized_mix\"],
-        \"predicted_strengths\": result[\"predicted_strengths\"],
-        \"total_cost\": result[\"total_cost\"],
-        \"carbon_footprint\": result[\"carbon_footprint\"],
-        \"created_at\": datetime.now(timezone.utc)
+        "user_id": user["_id"],
+        "target_strength": opt_request.target_strength,
+        "optimized_mix": result["optimized_mix"],
+        "total_cost": result["total_cost"],
+        "created_at": datetime.now(timezone.utc)
     }
-    
     await db.optimizations.insert_one(opt_doc)
-    
+
     return result
 
-@api_router.post(\"/calculate-cost\")
+@api_router.post("/calculate-cost")
 async def calculate_cost(cost_request: CostCalculationRequest, request: Request):
     user = await get_current_user(request, db)
-    
-    total_cost = optimizer.calculate_cost(
-        cost_request.mix_proportions,
-        cost_request.material_costs
-    )
-    
-    # Calculate cost breakdown
+
+    total_cost = optimizer.calculate_cost(cost_request.mix_proportions, cost_request.material_costs)
+
     breakdown = {
         material: round(cost_request.mix_proportions[material] * cost_request.material_costs.get(material, 0), 2)
         for material in cost_request.mix_proportions.keys()
     }
-    
+
     return {
-        \"total_cost_per_m3\": round(total_cost, 2),
-        \"cost_breakdown\": breakdown,
-        \"currency\": \"USD\"
+        "total_cost_per_m3": round(total_cost, 2),
+        "cost_breakdown": breakdown,
+        "currency": "USD"
     }
 
-@api_router.post(\"/calculate-carbon\")
+@api_router.post("/calculate-carbon")
 async def calculate_carbon(mix_proportions: Dict[str, float], request: Request):
     user = await get_current_user(request, db)
-    
+
     carbon_footprint = optimizer.calculate_carbon_footprint(mix_proportions)
     suggestions = optimizer.suggest_carbon_reduction(mix_proportions)
-    
+
     return {
-        \"total_carbon_footprint\": round(carbon_footprint, 2),
-        \"unit\": \"kg CO2 per m³\",
-        \"reduction_suggestions\": suggestions
+        "total_carbon_footprint": round(carbon_footprint, 2),
+        "unit": "kg CO2 per m³",
+        "reduction_suggestions": suggestions
     }
 
-@api_router.get(\"/dashboard/stats\")
+@api_router.get("/dashboard/stats")
 async def get_dashboard_stats(request: Request):
     user = await get_current_user(request, db)
-    
-    # Get user statistics
-    total_predictions = await db.predictions.count_documents({\"user_id\": user[\"_id\"]})
-    total_optimizations = await db.optimizations.count_documents({\"user_id\": user[\"_id\"]})
-    
-    # Get recent predictions
-    recent_predictions = await db.predictions.find(
-        {\"user_id\": user[\"_id\"]},
-        {\"_id\": 0}
-    ).sort(\"created_at\", -1).limit(5).to_list(5)
-    
+
+    total_predictions = await db.predictions.count_documents({"user_id": user["_id"]})
+    total_optimizations = await db.optimizations.count_documents({"user_id": user["_id"]})
+
     return {
-        \"total_predictions\": total_predictions,
-        \"total_optimizations\": total_optimizations,
-        \"recent_predictions\": recent_predictions,
-        \"subscription_tier\": user.get(\"subscription_tier\", \"free\")
+        "total_predictions": total_predictions,
+        "total_optimizations": total_optimizations,
+        "subscription_tier": user.get("subscription_tier", "free")
     }
 
-# Admin seed function
+@api_router.get("/")
+async def root():
+    return {"message": "ConcreteMix.AI API is running"}
+
+# ── Admin helper ──────────────────────────────────────────────────────────────
+async def require_admin(request: Request):
+    user = await get_current_user(request, db)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+# Admin Endpoints
+@api_router.get("/admin/users")
+async def admin_get_users(request: Request):
+    await require_admin(request)
+    cursor = db.users.find({}, {"password_hash": 0})
+    users = []
+    async for u in cursor:
+        u["id"] = str(u.pop("_id"))
+        if "created_at" in u:
+            u["created_at"] = u["created_at"].isoformat()
+        users.append(u)
+    return users
+
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, request: Request):
+    admin = await require_admin(request)
+    if str(admin["_id"]) == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    result = await db.users.delete_one({"_id": ObjectId(user_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User deleted"}
+
+class RoleUpdate(BaseModel):
+    role: str
+
+@api_router.patch("/admin/users/{user_id}/role")
+async def admin_update_role(user_id: str, body: RoleUpdate, request: Request):
+    admin = await require_admin(request)
+    if body.role not in ["user", "admin"]:
+        raise HTTPException(status_code=400, detail="Role must be 'user' or 'admin'")
+    result = await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"role": body.role}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "Role updated"}
+
+@api_router.get("/admin/stats")
+async def admin_get_stats(request: Request):
+    await require_admin(request)
+    total_users = await db.users.count_documents({})
+    admin_count = await db.users.count_documents({"role": "admin"})
+    total_predictions = await db.predictions.count_documents({})
+    total_optimizations = await db.optimizations.count_documents({})
+    return {
+        "total_users": total_users,
+        "admin_count": admin_count,
+        "total_predictions": total_predictions,
+        "total_optimizations": total_optimizations,
+    }
+
+# Admin seed
 async def seed_admin():
-    admin_email = os.environ.get(\"ADMIN_EMAIL\", \"admin@concretemix.ai\")
-    admin_password = os.environ.get(\"ADMIN_PASSWORD\", \"Admin@123\")
-    
-    existing = await db.users.find_one({\"email\": admin_email})
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@concretemix.ai")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "Admin@123")
+
+    existing = await db.users.find_one({"email": admin_email})
     if existing is None:
-        hashed = hash_password(admin_password)
         await db.users.insert_one({
-            \"email\": admin_email,
-            \"password_hash\": hashed,
-            \"name\": \"Admin\",
-            \"role\": \"admin\",
-            \"subscription_tier\": \"enterprise\",
-            \"created_at\": datetime.now(timezone.utc)
+            "email": admin_email,
+            "password_hash": hash_password(admin_password),
+            "name": "Admin",
+            "role": "admin",
+            "subscription_tier": "enterprise",
+            "created_at": datetime.now(timezone.utc)
         })
-        logging.info(f\"Admin user created: {admin_email}\")
-    elif not verify_password(admin_password, existing[\"password_hash\"]):
-        await db.users.update_one(
-            {\"email\": admin_email},
-            {\"$set\": {\"password_hash\": hash_password(admin_password)}}
-        )
-        logging.info(\"Admin password updated\")
-    
-    # Write credentials to file
-    credentials_path = Path(\"/app/memory\")
-    credentials_path.mkdir(exist_ok=True)
-    
-    with open(credentials_path / \"test_credentials.md\", \"w\") as f:
-        f.write(\"# Test Credentials
+        logger.info(f"Admin user created: {admin_email}")
 
-\")
-        f.write(\"## Admin Account
-\")
-        f.write(f\"- Email: {admin_email}
-\")
-        f.write(f\"- Password: {admin_password}
-\")
-        f.write(f\"- Role: admin
-
-\")
-        f.write(\"## Auth Endpoints
-\")
-        f.write(\"- POST /api/auth/register
-\")
-        f.write(\"- POST /api/auth/login
-\")
-        f.write(\"- GET /api/auth/me
-\")
-        f.write(\"- POST /api/auth/logout
-\")
-
-# Startup event
-@app.on_event(\"startup\")
+# Startup
+@app.on_event("startup")
 async def startup_event():
     global ml_models_loaded
-    
-    # Create indexes
-    await db.users.create_index(\"email\", unique=True)
-    await db.login_attempts.create_index(\"identifier\")
-    await db.password_reset_tokens.create_index(\"expires_at\", expireAfterSeconds=0)
-    
-    # Seed admin
+
+    await db.users.create_index("email", unique=True)
+    await db.login_attempts.create_index("identifier")
+
     await seed_admin()
-    
-    # Load or train ML models
-    logging.info(\"Loading ML models...\")
+
+    logger.info("Loading ML models...")
     if not predictor.load_models():
-        logging.info(\"Models not found. Training new models...\")
+        logger.info("Models not found. Training new models...")
         from ml_models.dataset_loader import ConcreteDataLoader
-        
         loader = ConcreteDataLoader()
         X_train, X_test, y_train, y_test, feature_names = loader.prepare_data()
-        
         predictor.train_models(X_train, X_test, y_train, y_test)
         predictor.save_models(loader.scaler)
-        logging.info(\"Model training completed\")
-    
+        logger.info("Model training completed")
+
     ml_models_loaded = True
-    logging.info(\"ML models loaded successfully\")
+    logger.info("ML models loaded successfully")
 
 # Include router
 app.include_router(api_router)
 
-# CORS
+# CORS — must come after include_router
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.environ.get(\"FRONTEND_URL\", \"http://localhost:3000\")],
+    allow_origins=[os.environ.get("FRONTEND_URL", "http://localhost:3001")],
     allow_credentials=True,
-    allow_methods=[\"*\"],
-    allow_headers=[\"*\"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-@app.on_event(\"shutdown\")
+@app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()

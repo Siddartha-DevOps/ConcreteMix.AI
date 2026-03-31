@@ -1,3 +1,100 @@
 {
-    
+  "theme": "light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast)",
+  "emotional_tone": "Authority, Precision, Truth, Engineering Scale",
+  "colors": {
+    "background": "#FFFFFF",
+    "foreground": "#0A0A0A",
+    "card": "#FFFFFF",
+    "card_foreground": "#0A0A0A",
+    "primary": "#FF5E00",
+    "primary_foreground": "#FFFFFF",
+    "secondary": "#F4F4F5",
+    "secondary_foreground": "#0A0A0A",
+    "muted": "#F4F4F5",
+    "muted_foreground": "#71717A",
+    "accent": "#FF5E00",
+    "accent_foreground": "#FFFFFF",
+    "destructive": "#EF4444",
+    "destructive_foreground": "#FFFFFF",
+    "border": "#E4E4E7",
+    "input": "#E4E4E7",
+    "ring": "#0A0A0A"
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Cabinet Grotesk",
+      "weights": ["800", "900"],
+      "tracking": "tracking-tight"
+    },
+    "body": {
+      "font_family": "IBM Plex Sans",
+      "weights": ["400", "500", "600"],
+      "tracking": "tracking-normal"
+    },
+    "mono_data": {
+      "font_family": "JetBrains Mono",
+      "weights": ["400", "500", "700"],
+      "usage": "Used for all mix results, numbers, tabular data, and carbon metrics."
+    },
+    "scale_hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-black",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold",
+      "h3": "text-xl sm:text-2xl tracking-tight font-bold",
+      "h4": "text-lg sm:text-xl font-bold",
+      "body": "text-base leading-relaxed",
+      "small_labels": "text-xs tracking-[0.2em] uppercase font-bold text-muted-foreground"
+    }
+  },
+  "layout_spacing": {
+    "strategy": "The Control Room Grid (Dashboard)",
+    "grid_columns": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4",
+    "gap": "gap-4 or gap-6",
+    "padding": "p-6 or p-8 for containers, tight padding for table cells",
+    "surface_strategy": "Grid Borders (The 'Technical' Look). Expose the skeleton. border-collapse style layout. Items have border-r border-b border-border/40. No soft shadows. Hard 1px borders to ground UI."
+  },
+  "components": {
+    "forms": "Use Shadcn Input, Select, Form, Checkbox. Heavily customized with stark 1px borders, square corners (rounded-none or max rounded-sm).",
+    "tables": "Dense, highly structured, JetBrains Mono for data cells.",
+    "buttons": "Flat, pure primary color (#FF5E00) or pure black for secondary. Hover state: slightly darker, MUST ensure text contrast. No shadows.",
+    "cards": "Go cardless or use flat rectangular shapes with a single 1px border. No soft drop shadows.",
+    "charts": "Shadcn Recharts for 7-day, 28-day, 56-day compressive strength predictions and Carbon Emissions."
+  },
+  "animations": {
+    "micro_interactions": "Hover states must have higher contrast. Lighter hue of active state. Focus states must have sharp ring-2 ring-primary ring-offset-1."
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "usage": "Dense dashboards, engineering tools, clear precision lines. Weight: regular or bold depending on emphasis."
+  },
+  "testing": {
+    "requirements": "All interactive and key informational elements MUST include a data-testid attribute. Kebab-case, role-based (e.g., data-testid='predict-strength-button')."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.pexels.com/photos/1402923/pexels-photo-1402923.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "auth_background",
+        "description": "Silhouette of cranes and a building under construction against a vivid sunset sky. Use with a dark or semi-transparent overlay to ensure auth card readability."
+      },
+      {
+        "url": "https://images.pexels.com/photos/176342/pexels-photo-176342.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "hero_landing",
+        "description": "Silhouette of workers on a construction site against a vibrant sunset sky. Ideal for a marketing hero section if applicable."
+      }
+    ],
+    "overlays": "Max overlay opacity: bg-black/50 for hero/auth images. Preferred range bg-black/40. Or gradient overlay."
+  },
+  "instructions_to_main_agent": [
+    "Install fonts: Cabinet Grotesk, IBM Plex Sans, JetBrains Mono.",
+    "Install icons: yarn add @phosphor-icons/react",
+    "Do not use generic 'Inter' for Headings. Use Cabinet Grotesk.",
+    "Configure Tailwind with the provided color system (Archetype 4: Swiss & High-Contrast). Base: Stark White, Text: Black, Accent: Safety Orange.",
+    "Build the dashboard using a cardless, Grid Borders approach. Emphasize 1px solid borders for separation.",
+    "For the mix optimization, predict strength form, and results, use dense, data-heavy layouts with JetBrains Mono for all numeric values.",
+    "Ensure all buttons, inputs, tabs have data-testid attributes.",
+    "Implement Shadcn charts for visualizing compressive strength over time (7, 28, 56 days) and carbon emission comparisons.",
+    "Follow 'Control Room Grid' rules for the main application area: fill all vertical space, no jagged bottoms.",
+    "Avoid glassmorphism. Use flat solid surfaces to maintain data readability."
+  ]
 }
